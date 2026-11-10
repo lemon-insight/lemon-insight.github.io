@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="Hexo Theme Redefine">
+    
+    
+    <meta name="author" content="Lemon 柠檬">
+    
+    <!-- Completely eliminate flash of wrong theme -->
+    <script>
+        (function() {
+            const THEME_KEY = "REDEFINE-THEME-STATUS";
+            const DARK = "dark", LIGHT = "light";
+            
+            // Get preferred theme
+            function getTheme() {
+                try {
+                    const saved = localStorage.getItem(THEME_KEY);
+                    if (saved) {
+                        const { isDark } = JSON.parse(saved);
+                        return isDark ? DARK : LIGHT;
+                    }
+                } catch (e) {}
+                
+                return matchMedia("(prefers-color-scheme: dark)").matches ? DARK : LIGHT;
+            }
+            
+            // Apply theme to document
+            function applyTheme(theme) {
+                const isDark = theme === DARK;
+                const root = document.documentElement;
+                
+                // Set classes for compatibility
+                root.classList.add(theme);
+                root.classList.remove(isDark ? LIGHT : DARK);
+                root.style.colorScheme = theme;
+            }
+            
+            // Initial application
+            const theme = getTheme();
+            applyTheme(theme);
+            
+            // Listen for system preference changes
+            matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ({ matches }) => {
+                // Only update if using system preference (no localStorage entry)
+                if (!localStorage.getItem(THEME_KEY)) {
+                    applyTheme(matches ? DARK : LIGHT);
+                }
+            });
+            
+            // Set body classes ASAP (before DOMContentLoaded)
+            (function() {
+                const addBodyClass = () => {
+                    const b = document.body;
+                    if (!b) return false;
+                    b.classList.add(theme + "-mode");
+                    return true;
+                };
+
+                // Try immediately
+                if (addBodyClass()) return;
+
+                // Observe until body exists
+                const mo = new MutationObserver(() => {
+                    if (addBodyClass()) mo.disconnect();
+                });
+                mo.observe(document.documentElement, { childList: true, subtree: true });
+            })();
+        })();
+    </script>
+    
+    <!-- preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    
+    <!--- Seo Part-->
+    
+    <link rel="canonical" href="https://lemon-insight.github.io/2026/11/09/压缩格式与压缩原理/"/>
+    <meta name="robots" content="index,follow">
+    <meta name="googlebot" content="index,follow">
+    <meta name="revisit-after" content="1 days">
+    
+    
+        
+        <meta name="description" content="Hexo Theme Redefine, Redefine Your Hexo Journey.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="计算机系统内常见的压缩格式及压缩原理">
+<meta property="og:url" content="https://lemon-insight.github.io/2026/11/09/%E5%8E%8B%E7%BC%A9%E6%A0%BC%E5%BC%8F%E4%B8%8E%E5%8E%8B%E7%BC%A9%E5%8E%9F%E7%90%86/index.html">
+<meta property="og:site_name" content="Lemon Insight">
+<meta property="og:description" content="Hexo Theme Redefine, Redefine Your Hexo Journey.">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lemon-insight.github.io/images/redefine-og.webp">
+<meta property="article:published_time" content="2026-11-09T14:00:00.000Z">
+<meta property="article:modified_time" content="2026-11-10T11:13:43.065Z">
+<meta property="article:author" content="Lemon 柠檬">
+<meta property="article:tag" content="压缩">
+<meta property="article:tag" content="文件格式">
+<meta property="article:tag" content="编码">
+<meta property="article:tag" content="性能">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lemon-insight.github.io/images/redefine-og.webp">
+    
+    
+    <!--- Icon Part-->
+    <link rel="icon" type="image/png" href="/images/favicon.png" sizes="192x192">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+    <meta name="theme-color" content="#4b5cc4">
+    <link rel="shortcut icon" href="/images/favicon.png">
+    <!--- Page Info-->
+    
+    <title>
+        
+            计算机系统内常见的压缩格式及压缩原理 | Lemon Insight
+        
+    </title>
+
+    
+<link rel="stylesheet" href="/fonts/Chillax/chillax.css">
+
+
+    <!--- Inject Part-->
+    
+        
+            
+    
+            
+    
+            
+                
+                    <style>
+  /* 页脚三列布局：左驱动信息 / 中版权统计 / 右访问计数，768px 起生效 */
+  @media (min-width: 768px) {
+    .footer .info-container { position: relative; }
+    .footer .info-container > div:nth-of-type(3) {
+      position: absolute; right: 20px; top: 50%;
+      transform: translateY(-50%); text-align: right;
+    }
+    .footer .info-container > div:nth-of-type(3) > span { display: block; }
+    .footer .info-container > div:nth-of-type(4) {
+      position: absolute; left: 20px; top: 50%;
+      transform: translateY(-50%); text-align: left;
+    }
+    .footer .info-container > div:nth-of-type(4) span { display: block; }
+  }
+</style>
+
+                
+    
+            
+                
+                    <style>
+  :root {
+    --preloader-background-color: #fff;
+    --preloader-text-color: #000;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --preloader-background-color: #202124;
+      --preloader-text-color: #fff;
+    }
+  }
+  .preloader {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    padding: 12px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--preloader-background-color);
+    z-index: 1100;
+    transition: opacity 0.2s ease-in-out;
+  }
+  .ml13 {
+    font-size: 3.2rem;
+    color: var(--preloader-text-color);
+    letter-spacing: -1px;
+    font-weight: 500;
+    font-family: 'Chillax-Variable', sans-serif;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .ml13 .word {
+    display: inline-flex;
+    flex-wrap: wrap;
+    white-space: nowrap;
+  }
+  .ml13 .letter {
+    display: inline-block;
+    line-height: 1em;
+  }
+  @media (max-width: 600px) {
+    .ml13 {
+      font-size: 2.4rem !important;
+    }
+  }
+</style>
+<script data-swup-reload-script src="/js/build/libs/anime.min.js"></script>
+<script>
+  (function() {
+    if (window.__preloaderInitialized) return;
+    window.__preloaderInitialized = true;
+
+    var preloaderHTML = '<div class="preloader"><h2 class="ml13">不要胆怯，向前迈步</h2></div>';
+
+    document.write(preloaderHTML);
+
+    var textWrapper = document.querySelector('.ml13');
+    if (textWrapper) {
+      var html = textWrapper.innerHTML;
+      textWrapper.innerHTML = html.replace(/\S/g, '<span class="letter">$&</span>');
+
+      anime.timeline({ loop: false })
+        .add({
+          targets: '.ml13 .letter',
+          translateY: [20, 0],
+          translateZ: 0,
+          opacity: [0, 1],
+          filter: ['blur(5px)', 'blur(0px)'],
+          easing: "easeOutExpo",
+          duration: 1200,
+          delay: (el, i) => 300 + 20 * i,
+        })
+        .add({
+          targets: '.ml13 .letter',
+          translateY: [0, -20],
+          opacity: [1, 0],
+          filter: ['blur(0px)', 'blur(5px)'],
+          easing: "easeInExpo",
+          duration: 1000,
+          delay: (el, i) => 15 * i,
+          complete: hidePreloader
+        }, '-=700');
+    }
+
+    var themeRaw = localStorage.getItem('REDEFINE-THEME-STATUS');
+    var isDark = false;
+    try {
+      if (themeRaw) {
+        var ts = JSON.parse(themeRaw);
+        if (ts && ts.isDark !== undefined) { isDark = ts.isDark; }
+        else { isDark = false; }
+      } else {
+        isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+    } catch(e) {
+      isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    if (isDark) {
+      document.documentElement.style.setProperty('--preloader-background-color', '#202124');
+      document.documentElement.style.setProperty('--preloader-text-color', '#fff');
+    } else {
+      document.documentElement.style.setProperty('--preloader-background-color', '#fff');
+      document.documentElement.style.setProperty('--preloader-text-color', '#000');
+    }
+
+    window.addEventListener('load', function () {
+      setTimeout(hidePreloader, 5000);
+    });
+
+    function hidePreloader() {
+      var preloader = document.querySelector('.preloader');
+      if (preloader) {
+        preloader.style.opacity = '0';
+        setTimeout(function () {
+          preloader.style.display = 'none';
+        }, 200);
+      }
+    }
+  })();
+</script>
+
+                
+    
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+
+    
+        
+<link rel="stylesheet" href="/css/build/tailwind.css">
+
+    
+
+    
+<link rel="stylesheet" href="/fonts/GeistMono/geist-mono.css">
+
+    
+<link rel="stylesheet" href="/fonts/Geist/geist.css">
+
+    <!--- Font Part-->
+    
+    
+    
+    
+    
+    
+
+    <script id="hexo-configurations">
+    window.config = {"hostname":"lemon-insight.github.io","root":"/","language":"zh-CN"};
+    window.theme = {"articles":{"style":{"font_size":"16px","line_height":1.5,"image_border_radius":"14px","image_alignment":"center","image_caption":false,"link_icon":true,"delete_mask":false,"title_alignment":"left","headings_top_spacing":{"h1":"3.2rem","h2":"2.4rem","h3":"1.9rem","h4":"1.6rem","h5":"1.4rem","h6":"1.3rem"}},"word_count":{"enable":true,"count":true,"min2read":true},"author_label":{"enable":true,"auto":false,"list":[]},"code_block":{"copy":true,"style":"mac","highlight_theme":{"light":"github","dark":"vs2015"},"font":{"enable":false,"family":null,"url":null}},"toc":{"enable":true,"max_depth":3,"number":false,"expand":true,"init_open":true},"copyright":{"enable":true,"default":"cc_by_nc_sa"},"lazyload":true,"pangu_js":false,"recommendation":{"enable":false,"title":"推荐阅读","limit":3,"mobile_limit":2,"placeholder":"/images/wallhaven-wqery6-light.webp","skip_dirs":[]}},"colors":{"primary":"#4b5cc4","secondary":null,"default_mode":"light"},"global":{"fonts":{"chinese":{"enable":false,"family":null,"url":null},"english":{"enable":false,"family":null,"url":null},"title":{"enable":false,"family":null,"url":null}},"content_max_width":"1000px","sidebar_width":"210px","hover":{"shadow":true,"scale":false},"scroll_progress":{"bar":false,"percentage":true},"website_counter":{"url":"https://cn.vercount.one/js","enable":true,"site_pv":true,"site_uv":true,"post_pv":true},"single_page":true,"preloader":{"enable":false,"custom_message":null},"side_tools":{"gear_rotation":true,"auto_expand":false},"open_graph":{"enable":true,"image":"/images/redefine-og.webp","description":"Hexo Theme Redefine, Redefine Your Hexo Journey."},"google_analytics":{"enable":false,"id":null}},"home_banner":{"enable":true,"style":"fixed","image":{"light":"/images/banner-light.jpg","dark":"/images/banner-dark.jpg"},"title":"Lemon Insight","subtitle":{"text":["六爻算不尽天下事，梅花亦有不解时"],"hitokoto":{"enable":false,"show_author":false,"api":"https://v1.hitokoto.cn"},"typing_speed":100,"backing_speed":80,"starting_delay":2000,"backing_delay":1500,"loop":false,"smart_backspace":true},"text_color":{"light":"#fff","dark":"#d1d1b6"},"text_style":{"title_size":"2.8rem","subtitle_size":"1.5rem","line_height":1.2},"custom_font":{"enable":false,"family":null,"url":null},"social_links":{"enable":true,"style":"default","links":[{"icon":"fa-brands fa-github","url":"https://github.com/lemon-insight"},{"icon":"fa-brands fa-twitter","url":null},{"icon":"fa-solid fa-at","url":null},{"icon":"fa-brands fa-telegram","url":null},{"icon":"/images/custom-icon.svg","url":null}],"qrs":[{"icon":"fa-brands fa-weixin","qr":null},{"icon":"/images/custom-icon.svg","qr":null}]}},"plugins":{"feed":{"enable":false},"aplayer":{"enable":false,"type":"fixed","audios":[{"name":null,"artist":null,"url":null,"cover":null,"lrc":null}]},"mermaid":{"enable":false,"version":"11.4.1","theme":{"light":"default","dark":"dark"}}},"version":"2.9.0","navbar":{"auto_hide":false,"color":{"left":"#005aa7","right":"#fffde4","transparency":35},"width":{"home":"1200px","pages":"1000px"},"links":{"Home":{"path":"/","icon":"fa-regular fa-house"},"Archives":{"path":"/archives","icon":"fa-regular fa-archive"},"Tags":{"path":"/tags","icon":"fa-regular fa-tags"},"Categories":{"path":"/categories","icon":"fa-regular fa-folder"},"About":{"path":"/about","icon":"fa-regular fa-user"},"Friends":{"path":"/friends","icon":"fa-regular fa-link"}},"search":{"enable":false,"preload":true}},"page_templates":{"friends_column":2,"tags_style":"blur","masonry":{"batch_size":12,"initial_batch_size":24}},"home":{"sidebar":{"enable":true,"position":"left","first_item":"menu","announcement":null,"show_on_mobile":true,"links":{"归档":{"path":"/archives","icon":"fa-regular fa-archive"},"标签":{"path":"/tags","icon":"fa-regular fa-tags"},"分类":{"path":"/categories","icon":"fa-regular fa-folder"}}},"article_date_format":"auto","excerpt_length":200,"categories":{"enable":true,"limit":3},"tags":{"enable":true,"limit":3}},"footer":{"runtime":true,"icon":"<i class=\"fa-solid fa-snowflake\" style=\"color: #7ba7d9\"></i>","start":"2026/9/30 20:00:00","statistics":true,"customize":"木槿昔年，浮生未歇<br>离离枯荣，千秋一粟","icp":{"enable":false,"number":null,"url":null}},"footerStart":"2026/9/30 20:00:00","mermaid":{"style":{"light":"default","dark":"dark"}}};
+    window.lang_ago = {"second":"%s 秒前","minute":"%s 分钟前","hour":"%s 小时前","day":"%s 天前","week":"%s 周前","month":"%s 个月前","year":"%s 年前"};
+    window.i18n = {"search":"站内搜索您需要的内容...","toc":"目录","prev":"上一页","next":"下一页","prev_posts":"上一篇","next_posts":"下一篇","page":"第 %d 页","recent_posts":"最新文章","share":"分享","powered_by":"由 %s 驱动","theme":"主题","rss_feed":"RSS Feed","category":"分类","categories":"分类","tag":"标签","tags":"标签","post":"文章","posts":"文章","tagcloud":"标签云","comment":"评论","comments":"评论","top":"置顶","sticky":"置顶","go-back-home":"回到首页","masonry_loading":"照片加载中...","image_viewer":"图片查看器","close":"关闭","exif":{"title":"EXIF","cards":{"camera":"相机","lens":"镜头","exposure":"曝光","other":"其他"},"fields":{"make":"品牌","model":"机型","date_taken":"拍摄时间","lens_model":"镜头","focal_length":"焦距","focus_mode":"对焦模式","shutter":"快门","aperture":"光圈","iso":"感光度","exposure_program":"曝光程序","exposure_compensation":"曝光补偿","metering_mode":"测光模式","flash":"闪光灯","white_balance":"白平衡","latitude":"纬度","longitude":"经度","altitude":"海拔"},"status":{"loading":"加载中...","no_exif":"无 EXIF 信息","library_missing":"EXIF 库未加载","image_source_missing":"图片地址不可用","unavailable":"EXIF 不可用（可能被 CORS 阻止或缺少元数据）","flag_unavailable":"EXIF 不可用"}},"home":"首页","archive":"归档","archives":"归档","about":"关于","links":"链接","link":"链接","friends":"友情链接","friend":"友情链接","timeline":"时间轴","shuoshuo":"说说","bookmarks":"书签","site_uv":"访问人数","site_pv":"总访问量","read_more":"阅读全文","wordcount":"字","min2read":"分钟","changelog":"更新日志","status":"状态","runtime":"博客已运行","days":"天","hours":"小时","minutes":"分钟","seconds":"秒","optimized_by":"并由 Evan 进行优化","rights":"版权所有","site_posts":"共撰写了 %s 篇文章","site_wordcount":"共 %s 字","copyright":{"title":"标题","author":"作者","link":"链接","create_time":"创建于","update_time":"更新于","license_title":"版权声明","license_content":"本文章采用 %s 进行许可。","all_rights_reserved":"版权所有 &#169 %s，禁止转载。","public_domain":"本文为公有领域作品，可自由转载、引用。"},"ago":{"second":"%s 秒前","minute":"%s 分钟前","hour":"%s 小时前","day":"%s 天前","week":"%s 周前","month":"%s 个月前","year":"%s 年前"},"create_time":"创建","update_time":"更新","expired":"这篇文章最后更新于 %s 天前，内容可能已经过时。"};
+    window.data = {"masonry":false};
+  </script>
+    
+    <!--- Fontawesome Part-->
+    
+<link rel="stylesheet" href="/fontawesome/fontawesome.min.css">
+
+    
+<link rel="stylesheet" href="/fontawesome/brands.min.css">
+
+    
+<link rel="stylesheet" href="/fontawesome/solid.min.css">
+
+    
+<link rel="stylesheet" href="/fontawesome/regular.min.css">
+
+    
+    
+    
+    
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+	<div class="progress-bar-container">
+	
+
+	
+	<span class="pjax-progress-bar"></span>
+	<!--        <span class="swup-progress-icon">-->
+	<!--            <i class="fa-solid fa-circle-notch fa-spin"></i>-->
+	<!--        </span>-->
+	
+</div>
+
+<main class="page-container" id="swup">
+
+	
+
+	<div class="main-content-container flex flex-col justify-between min-h-dvh">
+		<div class="main-content-header">
+			<header class="navbar-container px-6 md:px-12">
+    <div class="navbar-content transition-navbar ">
+        <div class="left">
+            
+            <a class="logo-title" href="/">
+                
+                Lemon Insight
+                
+            </a>
+        </div>
+
+        <div class="right">
+            <!-- PC -->
+            <div class="desktop">
+                <ul class="navbar-list">
+                    
+                        
+                            
+
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class=""
+                                   href="/"
+                                        >
+                                    <i class="fa-regular fa-house fa-fw"></i>
+                                    首页
+                                    
+                                </a>
+
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            
+
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class=""
+                                   href="/archives"
+                                        >
+                                    <i class="fa-regular fa-archive fa-fw"></i>
+                                    归档
+                                    
+                                </a>
+
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            
+
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class=""
+                                   href="/tags"
+                                        >
+                                    <i class="fa-regular fa-tags fa-fw"></i>
+                                    标签
+                                    
+                                </a>
+
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            
+
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class=""
+                                   href="/categories"
+                                        >
+                                    <i class="fa-regular fa-folder fa-fw"></i>
+                                    分类
+                                    
+                                </a>
+
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            
+
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class=""
+                                   href="/about"
+                                        >
+                                    <i class="fa-regular fa-user fa-fw"></i>
+                                    关于
+                                    
+                                </a>
+
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                        
+                            
+
+                            <li class="navbar-item">
+                                <!-- Menu -->
+                                <a class=""
+                                   href="/friends"
+                                        >
+                                    <i class="fa-regular fa-link fa-fw"></i>
+                                    友情链接
+                                    
+                                </a>
+
+                                <!-- Submenu -->
+                                
+                            </li>
+                    
+                    
+                </ul>
+            </div>
+            <!-- Mobile -->
+            <div class="mobile">
+                
+                <div class="icon-item navbar-bar">
+                    <div class="navbar-bar-middle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile sheet -->
+    <div class="navbar-drawer h-dvh w-full absolute top-0 left-0 bg-background-color flex flex-col justify-between">
+        <ul class="drawer-navbar-list flex flex-col px-4 justify-center items-start">
+            
+                
+                    
+
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full "
+                           href="/"
+                        >
+                            <span>
+                                首页
+                            </span>
+                            
+                                <i class="fa-regular fa-house fa-sm fa-fw"></i>
+                            
+                        </a>
+                        
+
+                        
+                    </li>
+            
+                
+                    
+
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full "
+                           href="/archives"
+                        >
+                            <span>
+                                归档
+                            </span>
+                            
+                                <i class="fa-regular fa-archive fa-sm fa-fw"></i>
+                            
+                        </a>
+                        
+
+                        
+                    </li>
+            
+                
+                    
+
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full "
+                           href="/tags"
+                        >
+                            <span>
+                                标签
+                            </span>
+                            
+                                <i class="fa-regular fa-tags fa-sm fa-fw"></i>
+                            
+                        </a>
+                        
+
+                        
+                    </li>
+            
+                
+                    
+
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full "
+                           href="/categories"
+                        >
+                            <span>
+                                分类
+                            </span>
+                            
+                                <i class="fa-regular fa-folder fa-sm fa-fw"></i>
+                            
+                        </a>
+                        
+
+                        
+                    </li>
+            
+                
+                    
+
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full "
+                           href="/about"
+                        >
+                            <span>
+                                关于
+                            </span>
+                            
+                                <i class="fa-regular fa-user fa-sm fa-fw"></i>
+                            
+                        </a>
+                        
+
+                        
+                    </li>
+            
+                
+                    
+
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full "
+                           href="/friends"
+                        >
+                            <span>
+                                友情链接
+                            </span>
+                            
+                                <i class="fa-regular fa-link fa-sm fa-fw"></i>
+                            
+                        </a>
+                        
+
+                        
+                    </li>
+            
+
+            
+            
+                
+                    
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full active"
+                           href="/archives"
+                        >
+                            <span>归档</span>
+                            <i class="fa-regular fa-archive fa-sm fa-fw"></i>
+                        </a>
+                    </li>
+                
+                    
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full active"
+                           href="/tags"
+                        >
+                            <span>标签</span>
+                            <i class="fa-regular fa-tags fa-sm fa-fw"></i>
+                        </a>
+                    </li>
+                
+                    
+                    <li class="drawer-navbar-item text-base my-1.5 flex flex-col w-full">
+                        <a class="py-1.5 px-2 flex flex-row items-center justify-between gap-1 hover:!text-primary active:!text-primary text-2xl font-semibold group border-b border-border-color hover:border-primary w-full active"
+                           href="/categories"
+                        >
+                            <span>分类</span>
+                            <i class="fa-regular fa-folder fa-sm fa-fw"></i>
+                        </a>
+                    </li>
+                
+            
+        </ul>
+
+        <div class="statistics flex justify-around my-2.5">
+    <a class="item tag-count-item flex flex-col justify-center items-center w-20" href="/tags">
+        <div class="number text-2xl sm:text-xl text-second-text-color font-semibold">24</div>
+        <div class="label text-third-text-color text-sm">标签</div>
+    </a>
+    <a class="item tag-count-item flex flex-col justify-center items-center w-20" href="/categories">
+        <div class="number text-2xl sm:text-xl text-second-text-color font-semibold">2</div>
+        <div class="label text-third-text-color text-sm">分类</div>
+    </a>
+    <a class="item tag-count-item flex flex-col justify-center items-center w-20" href="/archives">
+        <div class="number text-2xl sm:text-xl text-second-text-color font-semibold">10</div>
+        <div class="label text-third-text-color text-sm">文章</div>
+    </a>
+</div>
+    </div>
+
+    <div class="window-mask"></div>
+
+</header>
+
+
+		</div>
+
+		<div class="main-content-body transition-fade-up">
+			
+
+			<div class="main-content">
+				<div class="post-page-container flex relative justify-between box-border w-full h-full">
+	<div class="article-content-container">
+
+		<div class="article-title relative w-full">
+			
+			<div class="w-full flex items-center pt-6 justify-start">
+				<h1 class="article-title-regular text-second-text-color tracking-tight text-4xl md:text-6xl font-semibold px-2 sm:px-6 md:px-8 py-3">计算机系统内常见的压缩格式及压缩原理</h1>
+			</div>
+			
+		</div>
+
+		
+		<div class="article-header flex flex-row gap-2 items-center px-2 sm:px-6 md:px-8">
+			<div class="avatar w-[46px] h-[46px] shrink-0 rounded-medium border border-border-color p-px">
+				<img src="/images/avatar.png">
+			</div>
+			<div class="info flex flex-col justify-between">
+				<div class="author flex items-center">
+					<span class="name text-default-text-color text-lg font-semibold">Lemon 柠檬</span>
+					
+					<span class="author-label ml-1.5 text-xs px-2 py-0.5 rounded-small text-third-text-color border border-shadow-color-1">Lv2</span>
+					
+				</div>
+				<div class="meta-info">
+					<div class="article-meta-info">
+    <span class="article-date article-meta-item">
+        <i class="fa-regular fa-pen-fancy"></i>&nbsp;
+        <span class="desktop">2026-11-09 22:00</span>
+        <span class="mobile">2026-11-09 22:00</span>
+        <span class="hover-info">创建</span>
+    </span>
+    
+        <span class="article-date article-meta-item">
+            <i class="fa-regular fa-wrench"></i>&nbsp;
+            <span class="desktop">2026-11-10 19:13:43</span>
+            <span class="mobile">2026-11-10 19:13:43</span>
+            <span class="hover-info">更新</span>
+        </span>
+    
+
+    
+        <span class="article-categories article-meta-item">
+            <i class="fa-regular fa-folders"></i>&nbsp;
+            <ul>
+                
+                
+                    
+                        
+                        <li>
+                            <a href="/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/">技术笔记</a>&nbsp;
+                        </li>
+                    
+                    
+                
+            </ul>
+        </span>
+    
+    
+        <span class="article-tags article-meta-item">
+            <i class="fa-regular fa-tags"></i>&nbsp;
+            <ul>
+                
+                    <li>
+                        <a href="/tags/%E5%8E%8B%E7%BC%A9/">压缩</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/">文件格式</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/%E7%BC%96%E7%A0%81/">编码</a>&nbsp;
+                    </li>
+                
+                    <li>
+                        | <a href="/tags/%E6%80%A7%E8%83%BD/">性能</a>&nbsp;
+                    </li>
+                
+            </ul>
+        </span>
+    
+
+    
+    
+    
+    
+        <span class="article-pv article-meta-item">
+            <i class="fa-regular fa-eye"></i>&nbsp;<span id="busuanzi_value_page_pv"></span>
+        </span>
+    
+</div>
+
+				</div>
+			</div>
+		</div>
+		
+
+		
+
+
+		<div class="article-content markdown-body px-2 sm:px-6 md:px-8 pb-8">
+			<p>存储、传输和备份都离不开压缩。但“压缩”常被和“打包”混为一谈：tar 只是把多个文件装进一个容器，gzip 才是把数据变短；zip、7z 则两者兼有。</p>
+<span id="more"></span>
+
+<h2 id="一、先分清归档与压缩"><a href="#一、先分清归档与压缩" class="headerlink" title="一、先分清归档与压缩"></a>一、先分清归档与压缩</h2><p><strong>归档</strong>把多个文件合成一个容器，本身不一定压缩，例如 tar、ISO；<strong>压缩</strong>按算法把数据变短，例如 gzip、xz 的单条数据流。Linux 上常见的 <code>tar.gz</code> 就是分工合作：tar 负责打包，gzip 负责压缩这一条流。</p>
+<p>压缩又分两类：无损压缩解压后与原文逐位相同，适合程序、文本、数据库等通用数据；有损压缩允许人感知不到的失真，主要面向图像、音频和视频。注意，JPEG、MP4、DOCX 等内部已是压缩数据，再塞进 zip 几乎压不动，甚至可能变大。</p>
+<h2 id="二、无损压缩的核心原理"><a href="#二、无损压缩的核心原理" class="headerlink" title="二、无损压缩的核心原理"></a>二、无损压缩的核心原理</h2><p>无损压缩本质只做两件事：消除冗余，以及用熵编码把高频符号写得更短。</p>
+<h3 id="1-熵编码"><a href="#1-熵编码" class="headerlink" title="1. 熵编码"></a>1. 熵编码</h3><p><strong>Huffman 编码</strong>统计符号频率，构造最优前缀码：高频符号用短码，低频用长码，任何码都不是另一个码的前缀，因此可唯一解码。它的局限是每个符号至少占 1 bit，码长必须是整数位，压缩率有上限。</p>
+<p><strong>算术编码、区间编码和 rANS</strong> 不再给单个符号分配整数位，而是把整个序列映射到 <code>[0,1)</code> 区间中的一个小数，用区间边界表示。它能更逼近信息熵，常见于 LZMA、JPEG 2000 以及部分现代编码器。</p>
+<h3 id="2-RLE-与字典编码"><a href="#2-RLE-与字典编码" class="headerlink" title="2. RLE 与字典编码"></a>2. RLE 与字典编码</h3><p><strong>RLE（游程编码）</strong> 把连续 N 个相同值记成“值 + 次数”，适合图标、传真、扫描件和大片空白，PNG 滤波、BMP 的 RLE 都用到它。</p>
+<p><strong>LZ77</strong> 在已输出的历史窗口里寻找最长匹配，输出“回溯距离 + 匹配长度 + 下一个字符”；<strong>LZ78</strong> 增量构建短语字典；<strong>LZW</strong> 是 LZ78 的工程化变体，边压边建字典，解码端同步重建，不需要传输字典，GIF 和 TIFF 常用。LZ 系列自身输出仍是距离、长度和字面量，通常再套一层 Huffman 或算术编码，这才是强压缩的关键。</p>
+<h3 id="3-BWT-与上下文建模"><a href="#3-BWT-与上下文建模" class="headerlink" title="3. BWT 与上下文建模"></a>3. BWT 与上下文建模</h3><p><strong>BWT</strong> 是可逆排列：把所有循环移位排序后取最后一列，能把相似上下文聚到一起，再配合 MTF、RLE 和熵编码，bzip2 就是这套组合。<strong>上下文建模</strong>（如 PPM、CM）根据前几个字节预测下一个字节的概率分布，再用算术编码，压缩率极高但速度慢，7-Zip 的 PPMd 以及 PAQ 系列都属于此类。</p>
+<h2 id="三、有损压缩的核心原理"><a href="#三、有损压缩的核心原理" class="headerlink" title="三、有损压缩的核心原理"></a>三、有损压缩的核心原理</h2><p>有损压缩通常由“变换 + 量化 + 熵编码”组成。变换把信号从像素或采样域转到频域，例如 JPEG 的 8×8 DCT、音频的 MDCT；量化按感知重要性丢弃系数，是画质或音质损失的主要来源；最后再对剩余系数做熵编码。音频利用心理声学掩蔽效应，图像和视频利用视觉掩蔽与色度下采样。视频还会做帧间运动补偿，只编码运动矢量和残差，压缩率主要来自相邻帧的高度相似。</p>
+<h2 id="四、常见压缩格式"><a href="#四、常见压缩格式" class="headerlink" title="四、常见压缩格式"></a>四、常见压缩格式</h2><h3 id="通用无损压缩"><a href="#通用无损压缩" class="headerlink" title="通用无损压缩"></a>通用无损压缩</h3><table>
+<thead>
+<tr>
+<th>格式</th>
+<th>扩展名</th>
+<th>核心算法</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ZIP</td>
+<td><code>.zip</code></td>
+<td>DEFLATE（LZ77 + Huffman）</td>
+<td>最通用，可单独解出成员，支持加密</td>
+</tr>
+<tr>
+<td>GZIP</td>
+<td><code>.gz</code></td>
+<td>DEFLATE</td>
+<td>单流、无归档、不能随机访问，HTTP 常用</td>
+</tr>
+<tr>
+<td>BZIP2</td>
+<td><code>.bz2</code></td>
+<td>BWT + MTF + RLE + Huffman</td>
+<td>压缩率高于 gzip，慢、内存大</td>
+</tr>
+<tr>
+<td>XZ</td>
+<td><code>.xz</code></td>
+<td>LZMA2（LZ77 + 区间编码）</td>
+<td>压缩率很高，压缩慢、内存需求大</td>
+</tr>
+<tr>
+<td>7z</td>
+<td><code>.7z</code></td>
+<td>LZMA&#x2F;LZMA2、PPMd 等</td>
+<td>容器 + 多算法 + 固实压缩</td>
+</tr>
+<tr>
+<td>RAR</td>
+<td><code>.rar</code></td>
+<td>私有 LZ + PPM 变体</td>
+<td>商业格式，固实、恢复记录、分卷强</td>
+</tr>
+<tr>
+<td>Zstandard</td>
+<td><code>.zst</code></td>
+<td>LZ77 + FSE + Huffman</td>
+<td>速度与压缩比平衡极佳，支持字典</td>
+</tr>
+<tr>
+<td>Brotli</td>
+<td><code>.br</code></td>
+<td>LZ77 + 上下文建模 + 静态字典</td>
+<td>Web 文本优化，HTTP <code>Content-Encoding: br</code></td>
+</tr>
+<tr>
+<td>LZ4</td>
+<td><code>.lz4</code></td>
+<td>极简 LZ77</td>
+<td>解压可达 GB&#x2F;s 级，压缩比一般</td>
+</tr>
+<tr>
+<td>Snappy</td>
+<td>—</td>
+<td>LZ77 简化版</td>
+<td>快而稳定，大数据组件常用</td>
+</tr>
+<tr>
+<td>LZOP</td>
+<td><code>.lzo</code></td>
+<td>LZO</td>
+<td>解压极快，嵌入式与内核常用</td>
+</tr>
+</tbody></table>
+<h3 id="ZIP-与-7z：随机访问与固实压缩"><a href="#ZIP-与-7z：随机访问与固实压缩" class="headerlink" title="ZIP 与 7z：随机访问与固实压缩"></a>ZIP 与 7z：随机访问与固实压缩</h3><p>ZIP 的中央目录记录每个成员的位置，解压单个文件只需定位目标成员，随机访问好；但每个文件独立压缩，字典逐文件重置，跨文件重复无法利用，压缩率偏低。标准 ZIP 没有固实模式。</p>
+<p>7z 默认固实压缩，把多个文件连成一块统一压缩，字典可跨文件复用，小文件多时压缩率更高。但固实块是连续流，取块内文件必须从块首解压到目标位置，随机访问差；改一个文件通常要重压整块，损坏也可能波及后续文件。可用 <code>-ms=off</code> 关闭固实，或用 <code>-ms=100m</code> 控制块大小，在压缩率与随机访问间折中。</p>
+<p>频繁取单个文件选 ZIP 或非固实 7z；追求体积、整体归档选固实 7z；RAR 逻辑类似。</p>
+<h3 id="图像、音频与视频"><a href="#图像、音频与视频" class="headerlink" title="图像、音频与视频"></a>图像、音频与视频</h3><p>图像方面：PNG 用行滤波加 DEFLATE 无损压缩；GIF 用 LZW 和 256 色调色板；JPEG 走 YCbCr 转换、色度下采样、DCT、量化和 Huffman；WebP 有损基于 VP8 帧内编码，无损用预测加 LZ77；AVIF 和 HEIC 分别基于 AV1、HEVC 帧内编码；JPEG XL 兼顾无损与有损；TIFF 是容器，可装 LZW、DEFLATE 或 JPEG；RAW 保存传感器原始数据，常用预测加熵编码。</p>
+<p>音频方面：FLAC 和 ALAC 用线性预测加 Rice 编码实现无损，文件约为 WAV 的 50%–70%；MP3、AAC 依赖心理声学模型和 MDCT；Opus 结合 SILK 与 CELT，低延迟、低码率表现好；Vorbis 是开源的有损方案。</p>
+<p>视频方面：H.264、HEVC、AV1、VP9 都采用帧内预测、运动补偿、变换、量化和熵编码，压缩率主要来自时间冗余；ProRes、DNxHD 是帧内低压缩编码，追求剪辑流畅而不是最小体积。</p>
+<h3 id="容器与编码不是一回事"><a href="#容器与编码不是一回事" class="headerlink" title="容器与编码不是一回事"></a>容器与编码不是一回事</h3><p><code>.mp4</code>、<code>.mkv</code>、<code>.webm</code> 是容器，里面可以装 H.264、AV1、AAC 等编码流；<code>.docx</code>、<code>.xlsx</code>、<code>.epub</code>、<code>.jar</code>、<code>.apk</code> 本质上都是 zip 容器。判断一个文件“是什么压缩”，要先看容器，再看它使用的编码。</p>
+<h2 id="五、容易混淆的几个点"><a href="#五、容易混淆的几个点" class="headerlink" title="五、容易混淆的几个点"></a>五、容易混淆的几个点</h2><ol>
+<li><strong>gzip 不能打包多个文件</strong>，它只压一条流；多文件要先 tar，<code>tar.gz</code> 就是先打包再压缩。</li>
+<li><strong>ZIP 能随机访问</strong>，每个成员独立压缩，可单独解出；<code>tar.gz</code>、<code>xz</code> 是流式，取一个文件往往要从头解。</li>
+<li><strong>压缩率不是唯一指标</strong>，还要看压缩与解压速度、内存、随机访问、多线程和可恢复性，这正是 zstd、LZ4 存在的原因。</li>
+<li><strong>加密不是压缩</strong>，ZIP 的 ZipCrypto 很弱，敏感数据应使用 AES-256。</li>
+<li><strong>已经压过的数据别再压</strong>，JPEG、MP4、多数 PDF 和压缩包再压基本无收益。</li>
+</ol>
+<h2 id="六、场景化选择"><a href="#六、场景化选择" class="headerlink" title="六、场景化选择"></a>六、场景化选择</h2><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>跨平台分享、需要单独取文件</td>
+<td>ZIP</td>
+</tr>
+<tr>
+<td>Linux 备份与打包</td>
+<td>tar + zstd（快）或 tar + xz（小）</td>
+</tr>
+<tr>
+<td>追求最小体积、不急着解压</td>
+<td>7z（LZMA2）或 XZ</td>
+</tr>
+<tr>
+<td>日志、数据库、实时传输</td>
+<td>Zstandard 或 LZ4</td>
+</tr>
+<tr>
+<td>Web 静态资源</td>
+<td>Brotli，gzip 兜底</td>
+</tr>
+<tr>
+<td>长期冷存储</td>
+<td>zstd –long 或 XZ，配合校验和</td>
+</tr>
+<tr>
+<td>图片</td>
+<td>照片用 JPEG&#x2F;HEIC&#x2F;AVIF，截图图标用 PNG 或 WebP 无损</td>
+</tr>
+<tr>
+<td>音频</td>
+<td>归档用 FLAC，便携用 AAC&#x2F;Opus</td>
+</tr>
+<tr>
+<td>视频</td>
+<td>分发用 H.264&#x2F;HEVC&#x2F;AV1，剪辑用 ProRes</td>
+</tr>
+</tbody></table>
+<h2 id="七、总结"><a href="#七、总结" class="headerlink" title="七、总结"></a>七、总结</h2><p><strong>归档格式负责“装”，压缩算法负责“减”</strong>；无损压缩靠“找重复 + 熵编码”，有损压缩靠“丢掉人感知不到的信息”。实际格式几乎都是多种技术的组合：ZIP 是 LZ77 + Huffman，XZ 是 LZ77 + 区间编码，JPEG 是 DCT + 量化 + Huffman。</p>
+
+		</div>
+
+		
+		<div class="post-copyright-info w-full my-8 px-2 sm:px-6 md:px-8">
+			<div class="article-copyright-info-container">
+    <ul>
+        <li><strong>标题:</strong> 计算机系统内常见的压缩格式及压缩原理</li>
+        <li><strong>作者:</strong> Lemon 柠檬</li>
+        <li><strong>创建于
+                :</strong> 2026-11-09 22:00:00</li>
+        
+            <li>
+                <strong>更新于
+                    :</strong> 2026-11-10 19:13:43
+            </li>
+        
+        <li>
+            <strong>链接:</strong> https://lemon-insight.github.io/2026/11/09/压缩格式与压缩原理/
+        </li>
+        <li>
+            <strong>
+                版权声明:
+            </strong>
+            
+
+            
+                本文章采用 <a class="license" target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0">CC BY-NC-SA 4.0</a> 进行许可。
+            
+        </li>
+    </ul>
+</div>
+
+		</div>
+		
+
+		
+		<ul class="post-tags-box text-lg mt-1.5 flex-wrap justify-center flex md:hidden">
+			
+			<li class="tag-item mx-0.5">
+				<a href="/tags/%E5%8E%8B%E7%BC%A9/">#压缩</a>&nbsp;
+			</li>
+			
+			<li class="tag-item mx-0.5">
+				<a href="/tags/%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/">#文件格式</a>&nbsp;
+			</li>
+			
+			<li class="tag-item mx-0.5">
+				<a href="/tags/%E7%BC%96%E7%A0%81/">#编码</a>&nbsp;
+			</li>
+			
+			<li class="tag-item mx-0.5">
+				<a href="/tags/%E6%80%A7%E8%83%BD/">#性能</a>&nbsp;
+			</li>
+			
+		</ul>
+		
+
+		
+
+		
+		<div class="article-nav my-8 flex justify-between items-center px-2 sm:px-6 md:px-8">
+			
+			<div class="article-prev border-border-color shadow-redefine-flat shadow-shadow-color-2 rounded-medium px-4 py-2 hover:shadow-redefine-flat-hover hover:shadow-shadow-color-2">
+				<a class="prev" rel="prev" href="/2026/11/10/%E9%A6%99%E5%86%9C%E7%86%B5%E4%B8%8EHuffman%E7%BC%96%E7%A0%81/">
+					<span class="left arrow-icon flex justify-center items-center">
+						<i class="fa-solid fa-chevron-left"></i>
+					</span>
+					<span class="title flex justify-center items-center">
+						<span class="post-nav-title-item truncate max-w-48">从香农熵到 Huffman 编码：压缩的理论下限与实现</span>
+						<span class="post-nav-item">上一篇</span>
+					</span>
+				</a>
+			</div>
+			
+			
+			<div class="article-next border-border-color shadow-redefine-flat shadow-shadow-color-2 rounded-medium px-4 py-2 hover:shadow-redefine-flat-hover hover:shadow-shadow-color-2">
+				<a class="next" rel="next" href="/2026/11/09/%E5%9B%BE%E7%89%87%E6%95%B0%E6%8D%AE%E6%A0%BC%E5%BC%8F/">
+					<span class="title flex justify-center items-center">
+						<span class="post-nav-title-item truncate max-w-48">计算机系统内的图片数据格式</span>
+						<span class="post-nav-item">下一篇</span>
+					</span>
+					<span class="right arrow-icon flex justify-center items-center">
+						<i class="fa-solid fa-chevron-right"></i>
+					</span>
+				</a>
+			</div>
+			
+		</div>
+		
+
+
+		
+	</div>
+
+	
+	<div class="toc-content-container">
+		<div class="post-toc-wrap">
+	<div class="post-toc">
+		<div class="toc-title">目录</div>
+		<div class="page-title">计算机系统内常见的压缩格式及压缩原理</div>
+		<ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%85%88%E5%88%86%E6%B8%85%E5%BD%92%E6%A1%A3%E4%B8%8E%E5%8E%8B%E7%BC%A9"><span class="nav-text">一、先分清归档与压缩</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%97%A0%E6%8D%9F%E5%8E%8B%E7%BC%A9%E7%9A%84%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86"><span class="nav-text">二、无损压缩的核心原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E7%86%B5%E7%BC%96%E7%A0%81"><span class="nav-text">1. 熵编码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-RLE-%E4%B8%8E%E5%AD%97%E5%85%B8%E7%BC%96%E7%A0%81"><span class="nav-text">2. RLE 与字典编码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-BWT-%E4%B8%8E%E4%B8%8A%E4%B8%8B%E6%96%87%E5%BB%BA%E6%A8%A1"><span class="nav-text">3. BWT 与上下文建模</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9C%89%E6%8D%9F%E5%8E%8B%E7%BC%A9%E7%9A%84%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86"><span class="nav-text">三、有损压缩的核心原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%B8%B8%E8%A7%81%E5%8E%8B%E7%BC%A9%E6%A0%BC%E5%BC%8F"><span class="nav-text">四、常见压缩格式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%9A%E7%94%A8%E6%97%A0%E6%8D%9F%E5%8E%8B%E7%BC%A9"><span class="nav-text">通用无损压缩</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ZIP-%E4%B8%8E-7z%EF%BC%9A%E9%9A%8F%E6%9C%BA%E8%AE%BF%E9%97%AE%E4%B8%8E%E5%9B%BA%E5%AE%9E%E5%8E%8B%E7%BC%A9"><span class="nav-text">ZIP 与 7z：随机访问与固实压缩</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%BE%E5%83%8F%E3%80%81%E9%9F%B3%E9%A2%91%E4%B8%8E%E8%A7%86%E9%A2%91"><span class="nav-text">图像、音频与视频</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%B9%E5%99%A8%E4%B8%8E%E7%BC%96%E7%A0%81%E4%B8%8D%E6%98%AF%E4%B8%80%E5%9B%9E%E4%BA%8B"><span class="nav-text">容器与编码不是一回事</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%AE%B9%E6%98%93%E6%B7%B7%E6%B7%86%E7%9A%84%E5%87%A0%E4%B8%AA%E7%82%B9"><span class="nav-text">五、容易混淆的几个点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E5%9C%BA%E6%99%AF%E5%8C%96%E9%80%89%E6%8B%A9"><span class="nav-text">六、场景化选择</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">七、总结</span></a></li></ol>
+
+	</div>
+</div>
+	</div>
+	
+</div>
+
+			</div>
+
+			
+		</div>
+
+		<div class="main-content-footer">
+			<footer class="footer mt-5 py-5 h-auto text-base text-third-text-color relative border-t-2 border-t-border-color">
+    <div class="info-container py-3 text-center">
+        
+            <div class="customize-info my-1">木槿昔年，浮生未歇<br>离离枯荣，千秋一粟</div>
+        
+        <div class="text-center">
+            &copy;
+            
+              <span>2026</span>
+              -
+            
+            2026&nbsp;&nbsp;<i class="fa-solid fa-snowflake" style="color: #7ba7d9"></i>&nbsp;&nbsp;<a href="/">Lemon 柠檬</a>
+            
+                
+                <p class="post-count space-x-0.5">
+                    <span>
+                        共撰写了 10 篇文章
+                    </span>
+                    
+                </p>
+            
+        </div>
+        
+            <script data-swup-reload-script src="https://cn.vercount.one/js"></script>
+            <div class="relative text-center lg:absolute lg:right-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-right">
+                
+                    <span id="busuanzi_container_site_uv" class="lg:!block">
+                        <span class="text-sm">访问人数</span>
+                        <span id="busuanzi_value_site_uv"></span>
+                    </span>
+                
+                
+                    <span id="busuanzi_container_site_pv" class="lg:!block">
+                        <span class="text-sm">总访问量</span>
+                        <span id="busuanzi_value_site_pv"></span>
+                    </span>
+                
+            </div>
+        
+        <div class="relative text-center lg:absolute lg:left-[20px] lg:top-1/2 lg:-translate-y-1/2 lg:text-left">
+            <span class="lg:block text-sm">由 <?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="relative top-[2px] inline-block align-baseline" version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1rem" height="1rem" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#0E83CD" d="M256.4,25.8l-200,115.5L56,371.5l199.6,114.7l200-115.5l0.4-230.2L256.4,25.8z M349,354.6l-18.4,10.7l-18.6-11V275H200v79.6l-18.4,10.7l-18.6-11v-197l18.5-10.6l18.5,10.8V237h112v-79.6l18.5-10.6l18.5,10.8V354.6z"/></svg><a target="_blank" class="text-base" href="https://hexo.io">Hexo</a> 驱动</span>
+            <span class="text-sm lg:block">主题&nbsp;<a class="text-base" target="_blank" href="https://github.com/EvanNotFound/hexo-theme-redefine">Redefine v2.9.0</a></span>
+        </div>
+        
+        
+            <div>
+                博客已运行 <span class="odometer" id="runtime_days" ></span> 天 <span class="odometer" id="runtime_hours"></span> 小时 <span class="odometer" id="runtime_minutes"></span> 分钟 <span class="odometer" id="runtime_seconds"></span> 秒
+            </div>
+        
+        
+            <script data-swup-reload-script>
+                try {
+                    function odometer_init() {
+                    const elements = document.querySelectorAll('.odometer');
+                    elements.forEach(el => {
+                        new Odometer({
+                            el,
+                            format: '( ddd).dd',
+                            duration: 200
+                        });
+                    });
+                    }
+                    odometer_init();
+                } catch (error) {}
+            </script>
+        
+        
+            
+        
+    </div>  
+</footer>
+		</div>
+	</div>
+
+	
+	<div class="post-tools">
+		<div class="post-tools-container">
+	<ul class="article-tools-list">
+		<!-- TOC aside toggle -->
+		
+		<li class="right-bottom-tools page-aside-toggle">
+			<i class="fa-regular fa-outdent"></i>
+		</li>
+		
+
+		<!-- go comment -->
+		
+	</ul>
+</div>
+	</div>
+	
+
+	<div class="right-side-tools-container">
+		<div class="side-tools-container">
+	<ul class="hidden-tools-list">
+		<li class="right-bottom-tools tool-font-adjust-plus flex justify-center items-center">
+			<i class="fa-regular fa-magnifying-glass-plus"></i>
+		</li>
+
+		<li class="right-bottom-tools tool-font-adjust-minus flex justify-center items-center">
+			<i class="fa-regular fa-magnifying-glass-minus"></i>
+		</li>
+
+		<li class="right-bottom-tools tool-dark-light-toggle flex justify-center items-center">
+			<i class="fa-regular fa-moon"></i>
+		</li>
+
+		<!-- rss -->
+		
+
+		
+
+		<li class="right-bottom-tools tool-scroll-to-bottom flex justify-center items-center">
+			<i class="fa-regular fa-arrow-down"></i>
+		</li>
+	</ul>
+
+	<ul class="visible-tools-list">
+		<li class="right-bottom-tools toggle-tools-list flex justify-center items-center">
+			<i class="fa-regular fa-cog fa-spin"></i>
+		</li>
+		
+		<li class="right-bottom-tools tool-scroll-to-top flex justify-center items-center">
+			<i class="arrow-up fas fa-arrow-up"></i>
+			<span class="percent"></span>
+		</li>
+		
+		
+	</ul>
+</div>
+	</div>
+
+	<div class="image-viewer-container" role="dialog" aria-modal="true" aria-label="图片查看器">
+	<button class="image-viewer-close" type="button" aria-label="关闭">
+		<i class="fa-solid fa-xmark"></i>
+	</button>
+	<button class="image-viewer-prev" type="button" aria-label="上一页">
+		<i class="fa-solid fa-chevron-left"></i>
+	</button>
+	<div class="image-viewer-frame">
+		<img src="" alt="">
+	</div>
+	<div class="image-viewer-exif-panel hidden absolute left-1/2 bottom-20 -translate-x-1/2 w-[min(92vw,420px)] max-h-[60vh] overflow-hidden rounded-2xl bg-background-color-transparent-80 p-4 text-left shadow-redefine-flat backdrop-blur-md" role="dialog" aria-label="EXIF" aria-hidden="true">
+		<div class="flex items-center justify-between mb-3">
+			<span class="text-sm font-semibold text-first-text-color">EXIF</span>
+			<button class="image-viewer-exif-close flex h-8 w-8 items-center justify-center rounded-full bg-background-color-transparent-80 text-first-text-color transition hover:bg-background-color-transparent-40" type="button" aria-label="关闭">
+				<i class="fa-solid fa-xmark text-[0.65rem]"></i>
+			</button>
+		</div>
+		<div class="image-viewer-exif-cards grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1 scrollbar-hide"></div>
+		<template class="image-viewer-exif-card-template">
+			<div class="rounded-lg bg-background-color-transparent-40 px-3 py-2">
+				<div class="image-viewer-exif-card-header flex items-center gap-2 mb-1">
+					<i class="image-viewer-exif-card-icon fa-solid fa-circle-info text-xs text-third-text-color"></i>
+					<div class="image-viewer-exif-card-title text-xs font-semibold text-first-text-color"></div>
+				</div>
+				<div class="image-viewer-exif-card-items flex flex-col gap-1"></div>
+			</div>
+		</template>
+	</div>
+	<button class="image-viewer-exif-toggle flex items-center gap-2 hidden absolute left-1/2 bottom-6 -translate-x-1/2 rounded-full border border-border-color bg-background-color-transparent-80 px-4 py-2 text-first-text-color backdrop-blur-md transition hover:bg-background-color-transparent-40" type="button" aria-label="EXIF" aria-expanded="false">
+		<i class="fa-solid fa-circle-info text-xs"></i>
+		<span class="text-xs font-semibold uppercase tracking-wider">EXIF</span>
+	</button>
+	<button class="image-viewer-next" type="button" aria-label="下一页">
+		<i class="fa-solid fa-chevron-right"></i>
+	</button>
+</div>
+
+
+	
+
+</main>
+
+
+
+<script src="/js/build/libs/Swup.min.js"></script>
+
+<script src="/js/build/libs/SwupSlideTheme.min.js"></script>
+
+<script src="/js/build/libs/SwupScriptsPlugin.min.js"></script>
+
+<script src="/js/build/libs/SwupProgressPlugin.min.js"></script>
+
+<script src="/js/build/libs/SwupScrollPlugin.min.js"></script>
+
+<script src="/js/build/libs/SwupPreloadPlugin.min.js"></script>
+
+<script>
+    window.swup = new Swup({
+        plugins: [
+            new SwupScriptsPlugin({
+                optin: true,
+            }),
+            new SwupProgressPlugin(),
+            new SwupScrollPlugin({
+                offset: 80,
+            }),
+            new SwupSlideTheme({
+                mainElement: ".main-content-body",
+            }),
+            new SwupPreloadPlugin(),
+        ],
+        containers: ["#swup"],
+    });
+
+    window.dispatchEvent(
+        new CustomEvent("redefine:swup:ready", {
+            detail: {
+                swup: window.swup,
+            },
+        }),
+    );
+</script>
+
+
+
+
+	
+<script src="/js/build/main.js" type="module"></script>
+
+
+
+    
+<script src="/js/build/libs/odometer.min.js"></script>
+
+    
+<link rel="stylesheet" href="/assets/odometer-theme-minimal.css">
+
+
+
+
+
+
+
+  
+<script src="/js/build/libs/Typed.min.js"></script>
+
+
+
+
+
+
+
+
+
+
+<script src="/js/build/libs/moment-with-locales.min.js" data-swup-reload-script=""></script>
+
+
+
+	
+</body>
+
+</html>
