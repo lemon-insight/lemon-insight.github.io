@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <author>
-    <name>Lemon 柠檬</name>
+    <name>Quantum jump</name>
   </author>
   <generator uri="https://hexo.io/">Hexo</generator>
   <id>https://lemon-insight.github.io/</id>
   <link href="https://lemon-insight.github.io/" rel="alternate"/>
   <link href="https://lemon-insight.github.io/atom.xml" rel="self"/>
-  <rights>All rights reserved 2026, Lemon 柠檬</rights>
+  <rights>All rights reserved 2026, Quantum jump</rights>
   <subtitle>风起于青萍之末，浪成于微澜之间</subtitle>
   <title>Lemon Insight</title>
   <updated>2026-11-10T11:14:16.892Z</updated>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="Hexo" scheme="https://lemon-insight.github.io/tags/Hexo/"/>
@@ -34,7 +34,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="压缩" scheme="https://lemon-insight.github.io/tags/%E5%8E%8B%E7%BC%A9/"/>
@@ -55,7 +55,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="压缩" scheme="https://lemon-insight.github.io/tags/%E5%8E%8B%E7%BC%A9/"/>
@@ -76,7 +76,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="前端" scheme="https://lemon-insight.github.io/tags/%E5%89%8D%E7%AB%AF/"/>
@@ -97,7 +97,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="Git" scheme="https://lemon-insight.github.io/tags/Git/"/>
@@ -117,7 +117,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="硬件" scheme="https://lemon-insight.github.io/tags/%E7%A1%AC%E4%BB%B6/"/>
@@ -136,7 +136,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="前端" scheme="https://lemon-insight.github.io/tags/%E5%89%8D%E7%AB%AF/"/>
@@ -155,7 +155,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="CSS" scheme="https://lemon-insight.github.io/tags/CSS/"/>
@@ -174,7 +174,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="技术笔记" scheme="https://lemon-insight.github.io/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
     <category term="前端" scheme="https://lemon-insight.github.io/tags/%E5%89%8D%E7%AB%AF/"/>
@@ -193,7 +193,7 @@
   </entry>
   <entry>
     <author>
-      <name>Lemon 柠檬</name>
+      <name>Quantum jump</name>
     </author>
     <category term="考研笔记" scheme="https://lemon-insight.github.io/categories/%E8%80%83%E7%A0%94%E7%AC%94%E8%AE%B0/"/>
     <category term="考研" scheme="https://lemon-insight.github.io/tags/%E8%80%83%E7%A0%94/"/>
